@@ -1,152 +1,146 @@
-package old2;
 import java.net.InetAddress;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RoutingTable {
-	private HashMap<String /* ipAddress:portNumber */, Client> routingTable;
-	private boolean blockAdding;
+    private static final SimpleDateFormat FORMAT = new SimpleDateFormat(
+            "HH:mm:ss");
+    private ConcurrentHashMap<String /* ipAddress:portNumber */, Client> routingTable;
 
-	public RoutingTable() {
-		routingTable = new HashMap<String, Client>();
-		blockAdding = false;
-	}
+    public RoutingTable() {
+        routingTable = new ConcurrentHashMap<String, Client>();
+    }
+    
+    public Client get(Client client) {
+        return routingTable.get(client.getIpAddressPortNumberString());
+    }
 
-	/**
-	 * Adds a client to the routing table. Returns true if the routing table has
-	 * changed. False otherwise.
-	 */
-	public boolean add(InetAddress ipAddress, int portNumber, double cost,
-			InetAddress linkIpAddress, int linkPortNumber) {
-		if (blockAdding) {
-			return false;
-		}
-		
-		String key = Client.getIpAddressPortNumberString(linkIpAddress,
-				linkPortNumber);
-		
-		// Calculate the actual cost, which should be the sum of the cost and
-		// the cost to get to the link
-		if (!ipAddress.equals(linkIpAddress) && portNumber != linkPortNumber && cost != Double.POSITIVE_INFINITY) {
-			Client link = routingTable.get(Client.getIpAddressPortNumberString(
-					linkIpAddress, linkPortNumber));
-			double linkCost = link.getCost();
-			cost += linkCost;
-		}
+    public Collection<Client> getClients() {
+        return routingTable.values();
+    }
 
-		// Check if client already exists in routing table
-		if (routingTable.containsKey(key)) {
-			// Client already exists in the routing table
-			Client client = routingTable.get(key);
-			client.updateLastHeardFrom();
-		
-			// Check if this is a link down (cost is set to infinity)
-			if (cost == Double.POSITIVE_INFINITY && client.getIpAddress().equals(linkIpAddress) && client.getPortNumber() == linkPortNumber) {
-				client.setCost(cost);
-				return true;
-			}
+    /**
+     * Gets the data for displaying the routing table in the GUI.
+     */
+    public synchronized String[][] getRoutingTableDisplayInfo() {
+        String[][] displayInfo = new String[routingTable.size()][4];
 
-			// Check if the current cost in the routing table is higher than the
-			// new cost
-			if (client.getCost() <= cost) {
-				// The current cost is already low, so we don't have to do
-				// anything
-				return false;
-			} else {
-				// New cost is better, so add the new info in
-				client.setCost(cost);
-				client.setLink(linkIpAddress, linkPortNumber);
-				return true;
-			}
-		}
+        int counter = 0;
+        Iterator<Client> iter = routingTable.values().iterator();
+        while (iter.hasNext()) {
+            Client client = iter.next();
+            String[] clientInfo = {
+                    client.getIpAddressPortNumberString(),
+                    client.getCost() + "",
+                    client.getLink().getIpAddressPortNumberString(),
+                    FORMAT.format(new Date(client.getLastHeardFrom()))
+            };
+            displayInfo[counter++] = clientInfo;
+        }
 
-		// Client does not already exist in the routing table, so add it
-		routingTable.put(key, new Client(ipAddress, portNumber, cost,
-				linkIpAddress, linkPortNumber));
-		return true;
-	}
+        return displayInfo;
+    }
+    
+    public synchronized void linkDown(Client client) {
+        routingTable.get(client.getIpAddressPortNumberString()).setCost(Double.POSITIVE_INFINITY);
+    }
+    
+    public synchronized void touch(Client client) {
+        routingTable.get(client.getIpAddressPortNumberString()).updateLastHeardFrom();
+    }
 
-	public boolean add(InetAddress ipAddress, int portNumber, double cost) {
-		return add(ipAddress, portNumber, cost, ipAddress, portNumber);
-	}
-	
-	/**
-	 * Retrieves a client in the routing table.
-	 */
-	public Client get(InetAddress ipAddress, int portNumber) {
-		String key = Client.getIpAddressPortNumberString(ipAddress, portNumber);
-		return routingTable.get(key);
-	}
+    /**
+     * Adds or updates an entry in the routing table. Destination and link
+     * {@link Client} objects should have at least an {@link InetAddress} and a
+     * port number. Returns true if the routing table has been updated and false
+     * if the routing table has not been updated.
+     */
+    public synchronized boolean update(Client destinationClient,
+            Client linkClient,
+            double cost) {
+        // Get the actual cost to the destination client
+        cost = getActualCost(destinationClient, linkClient, cost);
 
-	/**
-	 * Removes the list of clients (indicated by their client keys).
-	 */
-	public void kill(ArrayList<String> clientKeys) {
-		for (String key : clientKeys) {
-			routingTable.remove(key);
-		}
-	}
-	
-	/**
-	 * Sets the cost of specified client to infinity.
-	 */
-	public void linkDown(InetAddress ipAddress, int portNumber) {
-		String key = Client.getIpAddressPortNumberString(ipAddress, portNumber);
-		Client client = routingTable.get(key);
-		client.setCost(Double.POSITIVE_INFINITY);
-	}
-	
-	public void setBlockAdding(boolean blockAdding) {
-		this.blockAdding = blockAdding;
-	}
+        // Check if routing table already has the destination client
+        if (routingTable.contains(destinationClient
+                .getIpAddressPortNumberString())) {
+            // Destination client already exists in the routing table
+            destinationClient = routingTable.get(destinationClient
+                    .getIpAddressPortNumberString());
+            destinationClient.updateLastHeardFrom();
 
-	/**
-	 * Gets a route update message which is a newline delimited list formatted
-	 * <ip address>:<port number> <cost>.
-	 * 
-	 * @return
-	 */
-	public String getRouteUpdateMessage() {
-		String message = "";
-		Iterator<Client> iter = routingTable.values().iterator();
-		while (iter.hasNext()) {
-			Client client = iter.next();
-			message += "\n" + Client.getIpAddressPortNumberString(client) + " "
-					+ client.getCost();
-		}
-		return message.isEmpty()? message : message.substring(1);
-	}
+            // Check if this update is a link down
+            // TODO
+            return false;
+        } else {
+            // Destination client does not already exist in the routing table,
+            // so add the client to the routing table.
+            add(destinationClient, linkClient, cost);
+            return true;
+        }
+    }
 
-	/**
-	 * Returns a {@link Collection} of {@link Client}s in the routing table.
-	 */
-	public Collection<Client> getClients() {
-		return routingTable.values();
-	}
+    /**
+     * Adds an entry to the routing table without any checking.
+     */
+    private void add(Client destinationClient, Client linkClient, double cost) {
+        Client client = new Client(destinationClient.getIpAddress(),
+                destinationClient.getPortNumber(), cost,
+                linkClient.getIpAddress(), linkClient.getPortNumber());
+        routingTable.put(destinationClient.getIpAddressPortNumberString(),
+                client);
+    }
 
-	@Override
-	public String toString() {
-		// Get current time
-		SimpleDateFormat currentTime = new SimpleDateFormat(
-				"yyyy-MM-dd HH:mm:ss");
-		String str = currentTime.format(new Date())
-				+ " Distance vector list is:";
+    /**
+     * Gets the actual cost from to a destination client by appending it to the
+     * cost of the link client.
+     */
+    private double getActualCost(Client destinationClient, Client linkClient,
+            double cost) {
+        // Check if the cost is infinity. If so, there's nothing we can do.
+        if (cost == Double.POSITIVE_INFINITY) {
+            return cost;
+        }
 
-		// Handle case where routing table is empty
-		if (routingTable.isEmpty()) {
-			return currentTime.format(new Date()) + " There's nothing here! :(";
-		}
-		
-		// Add each vector
-		Iterator<Client> iter = routingTable.values().iterator();
-		while (iter.hasNext()) {
-			str += "\n" + iter.next().toString();
-		}
+        // Check if the destination and link clients are the same
+        boolean same = destinationClient.getIpAddress().equals(
+                linkClient.getIpAddress())
+                && destinationClient.getPortNumber() == linkClient
+                        .getPortNumber();
 
-		return str;
-	}
+        if (same) {
+            // The destination and link clients are the same, so there is no
+            // need to append to the cost
+            return cost;
+        }
+
+        // Get the cost to the link client
+        double linkClientCost = routingTable.get(
+                linkClient.getIpAddressPortNumberString()).getCost();
+
+        return linkClientCost + cost;
+    }
+
+    @Override
+    public String toString() {
+        // Get current time
+        String currentTime = FORMAT.format(new Date());
+
+        // Handle the case where the routing table is empty
+        if (routingTable.isEmpty()) {
+            return currentTime + " There's nothing here! :(";
+        }
+
+        // Add each vector
+        String str = currentTime + " Distance vector list is:";
+        Iterator<Client> iter = routingTable.values().iterator();
+        while (iter.hasNext()) {
+            str += "\n" + iter.next().toString();
+        }
+
+        return str;
+    }
 }

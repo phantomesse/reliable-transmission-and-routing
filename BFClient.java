@@ -1,270 +1,211 @@
-package old2;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Scanner;
 
 public class BFClient {
-	private enum Command {
-		LINKDOWN, LINKUP, SHOWRT, CLOSE, TRANSFER;
-	}
+    private enum Command {
+        LINKDOWN, LINKUP, SHOWRT, CLOSE, TRANSFER;
+    }
 
-	private int portNumber;
-	private int timeout;
+    private int portNumber;
+    private int timeout;
 
-	private String fileChunkToTransfer;
-	private int fileSequenceNumber;
+    private String fileChunkToTransfer;
+    private int fileSequenceNumber;
 
-	private RoutingTable routingTable;
-	private UDPWriteSocket writeSocket;
-	private UDPReadSocket readSocket;
+    private WriteSocket writeSocket;
+    private ReadSocket readSocket;
 
-	public BFClient(String configFilePath) {
-		// Parse through config file
-		parseConfigFile(configFilePath);
+    private RoutingTable routingTable;
 
-		// Instantiate sockets
-		writeSocket = new UDPWriteSocket(this, timeout);
-		readSocket = new UDPReadSocket(this);
-		writeSocket.start();
-		readSocket.start();
+    private BFClientUI gui;
 
-		// Listen for user commands
-		Scanner in = new Scanner(System.in);
-		System.out.print("Command: ");
-		while (in.hasNextLine()) {
-			String[] line = in.nextLine().split(" ");
-			try {
-				Command command = Command.valueOf(line[0].toUpperCase());
-				switch (command) {
-				case LINKDOWN:
-					if (line.length < 3) {
-						System.out
-								.println("usage: LINKDOWN <ip address> <port number>");
-						break;
-					}
-					try {
-						InetAddress ipAddress = InetAddress.getByName(line[1]);
-						int portNumber = Integer.parseInt(line[2]);
-						linkDown(ipAddress, portNumber);
-					} catch (UnknownHostException e) {
-						System.out.println("Invalid IP address.");
-						break;
-					} catch (NumberFormatException e) {
-						System.out.println("Invalid port number.");
-					} catch (Exception e) {
-						System.out
-								.println("Something went wrong! LINKDOWN was not executed.");
-						e.printStackTrace();
-					}
-					break;
-				case LINKUP:
-					if (line.length < 4) {
-						System.out
-								.println("usage: LINKUP <ip address> <port number> <weight>");
-						break;
-					}
-					try {
-						Client client = Client
-								.parseIpAddressPortNumberString(line[1] + ":"
-										+ line[2]);
-						double cost = Double.parseDouble(line[3]);
-						linkUp(client.getIpAddress(), client.getPortNumber(),
-								cost);
-					} catch (UnknownHostException e) {
-						System.out
-								.println("Invalid IP address / port number combination.");
-						break;
-					} catch (NumberFormatException e) {
-						System.out.println("Invalid weight.");
-					} catch (Exception e) {
-						System.out
-								.println("Something went wrong! LINKUP was not executed.");
-					}
-					break;
-				case SHOWRT:
-					showRoutingTable();
-					break;
-				case CLOSE:
-					System.out.println("Goodbye!");
-					writeSocket.interrupt();
-					readSocket.interrupt();
-					System.exit(0);
-				case TRANSFER:
-					if (line.length < 3) {
-						System.out
-								.println("usage: TRANSFER <ip address> <port number>");
-						break;
-					}
-					try {
-						InetAddress ipAddress = InetAddress.getByName(line[1]);
-						int portNumber = Integer.parseInt(line[2]);
-						transfer(ipAddress, portNumber);
-					} catch (UnknownHostException e) {
-						System.out.println("Invalid IP address.");
-						break;
-					} catch (NumberFormatException e) {
-						System.out.println("Invalid port number.");
-					} catch (Exception e) {
-						System.out
-								.println("Something went wrong! TRANSFER was not executed.");
-					}
-					break;
-				}
-			} catch (IllegalArgumentException e) {
-				System.out
-						.println("Sorry, we did not understand your command. Please try again!");
-			}
+    public BFClient(String configFilePath) {
+        // Parse through config file
+        parseConfigFile(configFilePath);
 
-			System.out.print("\nCommand: ");
-		}
-	}
+        // Instantiate sockets
+        writeSocket = new WriteSocket(this, timeout);
+        readSocket = new ReadSocket(this);
+        writeSocket.start();
+        readSocket.start();
 
-	/**
-	 * Parses through a config file to instantiate various elements for
-	 * {@link BFClient}.
-	 */
-	private void parseConfigFile(String configFilePath) {
-		try {
-			Scanner scanner = new Scanner(new File(configFilePath));
+        gui = new BFClientUI(this);
 
-			// Configure this client
-			String[] line = scanner.nextLine().split(" ");
-			portNumber = Integer.parseInt(line[0]);
-			timeout = Integer.parseInt(line[1]); // specified in seconds
-			if (line.length > 2) {
-				fileChunkToTransfer = line[2];
-				fileSequenceNumber = Integer.parseInt(line[3]);
-			}
+//        SwingUtilities.invokeLater(new Runnable() {
+//            public void run() {
+                gui.createAndRunGUI();
+//            }
+//        });
+    }
 
-			// Build the routing table
-			routingTable = new RoutingTable();
-			while (scanner.hasNextLine()) {
-				line = scanner.nextLine().split(" ");
-				Client client = Client.parseIpAddressPortNumberString(line[0]);
-				double cost = Double.parseDouble(line[1]);
-				routingTable.add(client.getIpAddress(), client.getPortNumber(),
-						cost);
-			}
-		} catch (FileNotFoundException e) {
-			die("could not read " + configFilePath);
-		} catch (Exception e) {
-			die("something went wrong while parsing " + configFilePath);
-		}
-	}
+    /**
+     * Parses through a config file to instantiate various elements for
+     * {@link BFClient}.
+     */
+    private void parseConfigFile(String configFilePath) {
+        try {
+            Scanner scanner = new Scanner(new File(configFilePath));
 
-	/**
-	 * Removes a link from the routing table and sends an update to tell
-	 * everyone else to do so.
-	 */
-	private void linkDown(InetAddress ipAddress, int portNumber) {
-		routingTable.setBlockAdding(true);
-		routingTable.linkDown(ipAddress, portNumber);
-		System.out.println(routingTable.get(ipAddress, portNumber));
-		writeSocket.sendLinkDown(new Client(ipAddress, portNumber));
-	}
+            // Configure this client
+            String[] line = scanner.nextLine().split(" ");
+            portNumber = Integer.parseInt(line[0]);
+            timeout = Integer.parseInt(line[1]); // specified in seconds
+            if (line.length > 2) {
+                fileChunkToTransfer = line[2];
+                fileSequenceNumber = Integer.parseInt(line[3]);
+            }
 
-	/**
-	 * Removes a link from the routing table based on a message from the read
-	 * socket.
-	 */
-	public void linkDown(Message message) {
-		routingTable.setBlockAdding(true);
-		routingTable.linkDown(message.getFromClient().getIpAddress(), message
-				.getFromClient().getPortNumber());
-		routingTable.setBlockAdding(false);
-	}
+            // Build the routing table
+            routingTable = new RoutingTable();
+            while (scanner.hasNextLine()) {
+                line = scanner.nextLine().split(" ");
+                Client client = new Client(line[0]);
+                double cost = Double.parseDouble(line[1]);
+                routingTable.update(client, client, cost);
+            }
+        } catch (FileNotFoundException e) {
+            die("could not read " + configFilePath);
+        } catch (Exception e) {
+            die("something went wrong while parsing " + configFilePath);
+        }
+    }
 
-	/**
-	 * Restores a link to the mentioned neighbor with the given weight.
-	 */
-	private void linkUp(InetAddress ipAddress, int portNumber, double cost) {
-		routingTable.setBlockAdding(true);
-		// Check if the link was down in the first place
-		Client client = routingTable.get(ipAddress, portNumber);
-		if (client.getCost() != Double.POSITIVE_INFINITY) {
-			System.out.println(Client.getIpAddressPortNumberString(client)
-					+ " was not down in the first place!");
-			return;
-		}
+    /**
+     * Executes a command. Responds with the appropriate response string.
+     */
+    public String executeCommand(String commandStr) {
+        String[] command = commandStr.split(" ");
 
-		routingTable.add(ipAddress, portNumber, cost);
-		System.out.println(routingTable.get(ipAddress, portNumber));
-		writeSocket.sendLinkUp(new Client(ipAddress, portNumber), cost);
-	}
+        // Determine the type of command
+        Command commandType = null;
+        try {
+            commandType = Command.valueOf(command[0].toUpperCase());
+        } catch (Exception e) {
+            return "Sorry, we did not understand your command. Please try again!";
+        }
 
-	public void linkUp(Message message) {
-		routingTable.setBlockAdding(true);
-		routingTable.add(message.getFromClient().getIpAddress(), message
-				.getFromClient().getPortNumber(), Double.parseDouble(message
-				.getMessage().trim()));
-		routingTable.setBlockAdding(false);
-	}
+        switch (commandType) {
+            case LINKDOWN:
+                if (command.length < 3) {
+                    return "usage: LINKDOWN <ip address> <port number>";
+                }
+                try {
+                    InetAddress ipAddress = InetAddress.getByName(command[1]);
+                    int portNumber = Integer.parseInt(command[2]);
+                    return linkDown(ipAddress, portNumber);
+                } catch (UnknownHostException e) {
+                    return "Invalid IP address.";
+                } catch (NumberFormatException e) {
+                    return "Invalid port number.";
+                } catch (Exception e) {
+                    e.printStackTrace(); // TODO: remove this
+                    return "Something went wrong!";
+                }
+            case LINKUP:
+                return linkUp();
+            case SHOWRT:
+                return showRoutingTable();
+            case CLOSE:
+                close();
+                break;
+            case TRANSFER:
+                return transfer();
+        }
 
-	/**
-	 * Prints the routing table to the screen.
-	 */
-	private void showRoutingTable() {
-		System.out.println(routingTable.toString());
-	}
+        return "";
+    }
 
-	private void transfer(InetAddress ipAddress, int portNumber) {
-		// TODO
-	}
+    private String linkDown(InetAddress ipAddress, int portNumber) {
+        // Link down on our routing table
+        routingTable.linkDown(new Client(ipAddress, portNumber));
+        
+        // Send route update
+        writeSocket.sendRouteUpdate();
+        
+        return routingTable.get(new Client(ipAddress, portNumber)).toString();
+    }
 
-	public RoutingTable getRoutingTable() {
-		return routingTable;
-	}
+    private String linkUp() {
+        // TODO
+        return "Command not implemented.";
+    }
 
-	public int getPortNumber() {
-		return portNumber;
-	}
+    private String showRoutingTable() {
+        return routingTable.toString();
+    }
 
-	/**
-	 * Updates the routing table when a packet is received.
-	 */
-	public void updateRoutingTable(Message message) {
-		boolean routingTableChanged = false;
+    public void close() {
+        writeSocket.interrupt();
+        readSocket.interrupt();
+        System.exit(0);
+    }
 
-		String[] vectorLines = message.getMessage().split("\n");
-		for (String vectorLine : vectorLines) {
-			String[] line = vectorLine.split(" ");
-			try {
-				// Get ip address, port, and cost
-				Client client = Client.parseIpAddressPortNumberString(line[0]);
-				double cost = Double.parseDouble(line[1]);
+    private String transfer() {
+        // TODO
+        return "Command not implemented.";
+    }
 
-				// Add to routing table
-				boolean changed = routingTable.add(client.getIpAddress(),
-						client.getPortNumber(), cost, message.getFromClient()
-								.getIpAddress(), message.getFromClient()
-								.getPortNumber());
-				if (!routingTableChanged) {
-					routingTableChanged = changed;
-				}
-			} catch (UnknownHostException e) {
-				// Something went wrong
-			}
-		}
+    /**
+     * Updates the routing table based on incoming {@link Message}.
+     */
+    public void updateRoutingTable(Message message) {
+        // Touch the client that sent this message
+        Client fromClient = message.getFromClient();
+        routingTable.touch(fromClient);
 
-		if (routingTableChanged) {
-			// Send out route update
-			writeSocket.sendRouteUpdate();
-		}
-	}
+        String messageStr = message.getMessage().trim();
+        if (messageStr.isEmpty()) {
+            gui.updateRoutingTable();
+            return; // Nothing to do here
+        }
+        
+        // Parse through message string
+        boolean routingTableChanged = false;
+        String[] messageArr = messageStr.split("\n");
+        for (String vectorStr : messageArr) {
+            if (vectorStr.trim().isEmpty()) {
+                continue;
+            }
+            String[] vector = vectorStr.split(" ");
+            try {
+                Client destinationClient = new Client(vector[0]);
+                double cost = Double.parseDouble(vector[1]);
+                boolean changed = routingTable.update(destinationClient, fromClient, cost);
+                routingTableChanged = changed? true : routingTableChanged;
+            } catch (UnknownHostException e) {
+                // Something went wrong
+            }
+        }
+        gui.updateRoutingTable();
+        
+        // Send route update if routing table changed
+        if (routingTableChanged) {
+            writeSocket.sendRouteUpdate();
+        }
+    }
 
-	private static void die(String message) {
-		System.err.println(message);
-		System.exit(1);
-	}
+    public RoutingTable getRoutingTable() {
+        return routingTable;
+    }
 
-	public static void main(String[] args) {
-		if (args.length < 1) {
-			die("usage: BFClient <config file>");
-		}
+    public int getPortNumber() {
+        return portNumber;
+    }
 
-		new BFClient(args[0]);
-	}
+    private static void die(String message) {
+        System.err.println(message);
+        System.exit(1);
+    }
+
+    public static void main(String[] args) {
+        if (args.length < 1) {
+            die("usage: BFClient <config file>");
+        }
+
+        new BFClient(args[0]);
+
+    }
 }
