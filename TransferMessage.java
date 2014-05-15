@@ -86,14 +86,14 @@ public class TransferMessage extends Message {
         // Parse chunk
         byte[] chunk = new byte[message.length - clientsTraversedBytes.length];
         for (int i = 0; i < chunk.length; i++) {
-            message[i] = message[i + clientsTraversedBytes.length];
+            chunk[i] = message[i + clientsTraversedBytes.length];
         }
 
         // Create the file chunk
         fileChunk = new FileChunk(header.getFileName(), chunk,
                 header.getSequenceNumber(), clientsTraversed);
         fileChunk.setDestination(header.getDestination());
-
+        
         // Add to clients traversed
         fileChunk.addClientTraversed(fromClient);
     }
@@ -114,7 +114,7 @@ public class TransferMessage extends Message {
         for (int i = 0; i < chunk.length; i++) {
             message[i + clientsTraversed.length] = chunk[i];
         }
-                
+
         return encode(toClient, header.toString(), message);
     }
     

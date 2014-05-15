@@ -27,7 +27,7 @@ public abstract class Message {
             header[i] = data[i];
         }
         headerStr = (new String(header)).trim();
-
+        
         // Get the message from the data
         message = new byte[packet.getLength() - HEADER_SIZE];
         for (int i = 0; i < message.length; i++) {

@@ -41,7 +41,8 @@ public class BFClient {
         if (this.fileChunk != null) {
             myChunks[this.fileChunk.getSequenceNumber() - 1] = this.fileChunk;
         }
-
+        
+        
         // Set up sockets
         writeSocket = new WriteSocket(this, timeout);
         readSocket = new ReadSocket(this);
@@ -76,7 +77,7 @@ public class BFClient {
                     .getIpAddressPortNumberString()
                     .equals(linkDownClient
                             .getIpAddressPortNumberString())) {
-                
+
                 // Set the cost
                 client.setCost(Double.POSITIVE_INFINITY);
             }
