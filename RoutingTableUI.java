@@ -1,8 +1,10 @@
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 
+import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
@@ -64,9 +66,11 @@ public class RoutingTableUI extends JPanel {
 
     public RoutingTableUI(RoutingTable routingTable) {
         super(new BorderLayout());
+        setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.DARK_GRAY));
 
         model = new RoutingTableModel(routingTable.getClients());
         table = new JTable(model);
+        table.setForeground(Color.DARK_GRAY);
 
         add(table.getTableHeader(), BorderLayout.PAGE_START);
         add(table, BorderLayout.CENTER);

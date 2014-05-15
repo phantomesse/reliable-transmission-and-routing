@@ -1,3 +1,4 @@
+import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -46,6 +47,7 @@ public class CommandUI extends JPanel implements ActionListener {
 
     public CommandUI(BFClientUI gui, BFClient.Command[] commands) {
         super(new FlowLayout(FlowLayout.LEFT));
+        setBackground(new Color(240, 240, 240));
 
         this.gui = gui;
 

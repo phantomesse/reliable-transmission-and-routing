@@ -11,7 +11,7 @@ public class FileChunkUI extends JPanel {
     public FileChunkUI(FileChunk[] myChunks) {
         super(new BorderLayout());
 
-        add(new JLabel("File Chunks"), BorderLayout.PAGE_START);
+        add(new JLabel("File Chunks:"), BorderLayout.WEST);
 
         checks = new JCheckBox[myChunks.length];
         JPanel panel = new JPanel();

@@ -9,7 +9,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 public class BFClientUI {
-    private static final int WIDTH = 600;
+    private static final int WIDTH = 650;
     private static final int HEIGHT = 300;
 
     private BFClient bfclient;
@@ -50,23 +50,17 @@ public class BFClientUI {
         panel.add(console, BorderLayout.CENTER);
 
         // Add the file chunk UI
+        JPanel bottomPanel = new JPanel(new BorderLayout());
         fileChunkUI = new FileChunkUI(bfclient.getMyChunks());
-        panel.add(fileChunkUI, BorderLayout.EAST);
+        bottomPanel.add(fileChunkUI, BorderLayout.EAST);
 
         // Add the command UI
         commandUI = new CommandUI(this, BFClient.Command.values());
-        panel.add(commandUI, BorderLayout.SOUTH);
+        bottomPanel.add(commandUI, BorderLayout.CENTER);
+        panel.add(bottomPanel, BorderLayout.SOUTH);
 
         // Set focus on console input
         frame.addWindowListener(new WindowAdapter() {
-            /*
-             * public void windowOpened(WindowEvent e) {
-             * // Set focus on input box
-             * // TODO
-             * // consoleInput.requestFocus();
-             * }
-             */
-
             public void windowClosing(WindowEvent e) {
                 bfclient.close();
             }
