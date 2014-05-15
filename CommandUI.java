@@ -73,7 +73,7 @@ public class CommandUI extends JPanel implements ActionListener {
     /**
      * Populates the client combo box with the clients in the routing table.
      */
-    public void populateClientComboBox() {
+    public synchronized void populateClientComboBox() {
         String select = (String) clientComboBox.getSelectedItem();
         clientComboBox.removeAllItems();
 

@@ -71,21 +71,26 @@ public class ReadSocket extends Thread {
                 case LINKUP:
                     // Get the client that is up
                     Client clientUp = ((LinkUpMessage) message).getClientUp();
-                    
+
                     if (isMe(clientUp)) {
-                        clientUp = bfclient.getRoutingTable().get(message.getFromClient());
-                        
-                        // Check if the link matches where this LINKUP message is from
+                        clientUp = bfclient.getRoutingTable().get(
+                                message.getFromClient());
+
+                        // Check if the link matches where this LINKUP message
+                        // is from
                         Client link = clientUp.getLink();
-                        if (link.getIpAddressPortNumberString().equals(message.getFromClient().getIpAddressPortNumberString())) {
+                        if (link.getIpAddressPortNumberString().equals(
+                                message.getFromClient()
+                                        .getIpAddressPortNumberString())) {
                             // Link matches, so update the cost
-                            clientUp.setCost(((LinkUpMessage) message).getCost());
-                            
+                            clientUp.setCost(((LinkUpMessage) message)
+                                    .getCost());
+
                             // Send a route update
                             bfclient.sendRouteUpdate();
                         }
                     }
-                    
+
                     break;
                 case LINKDOWN:
                     // Get the client that is down
@@ -98,27 +103,29 @@ public class ReadSocket extends Thread {
 
                         // Link down in routing table
                         bfclient.getRoutingTable().linkdown(clientDown);
-                        
-                        // Set any links that are through this client to INFINITY
-                        Iterator<Client> iter = bfclient.getRoutingTable().getClients().iterator();
+
+                        // Set any links that are through this client to
+                        // INFINITY
+                        Iterator<Client> iter = bfclient.getRoutingTable()
+                                .getClients().iterator();
                         while (iter.hasNext()) {
                             Client client = iter.next();
-                            if (client.getLink().getIpAddressPortNumberString().equals(client.getLink().getIpAddressPortNumberString())) {
+                            if (client
+                                    .getLink()
+                                    .getIpAddressPortNumberString()
+                                    .equals(clientDown
+                                            .getIpAddressPortNumberString())) {
+                                // Set the cost
                                 client.setCost(Double.POSITIVE_INFINITY);
-                                
-                                // Send link down
-                                //bfclient.sendLinkDown(clientDown);
                             }
                         }
-                    } else {
-                        // TODO
+
+                        // Update routing table
+                        bfclient.updateRoutingTableUI();
+
+                        // Send a route update
+                        bfclient.sendRouteUpdate();
                     }
-
-                    bfclient.updateRoutingTableUI();
-
-                    System.out.println("The client "
-                            + clientDown.getIpAddressPortNumberString()
-                            + " is down!");
 
                     break;
                 case ROUTE_UPDATE:
@@ -138,10 +145,15 @@ public class ReadSocket extends Thread {
                         }
                         double cost = entry.getValue();
 
-                        // Check if this is a linkdown
+                        // Check if this entry is me
+                        if (isMe(client)) {
+                            client = message.getFromClient();
+                        }
+                        
                         boolean changed = bfclient.getRoutingTable()
                                 .update(client,
                                         message.getFromClient(), cost);
+                        
                         if (!routingTableChanged) {
                             routingTableChanged = changed;
                         }
@@ -158,8 +170,6 @@ public class ReadSocket extends Thread {
                 case TRANSFER:
                     FileChunk chunkReceived = ((TransferMessage) message)
                             .getFileChunk();
-
-                    System.out.println("Received a transfer something!");
 
                     if (isMe(chunkReceived.getDestination())) {
                         // Destination is me. We have reached the destination

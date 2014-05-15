@@ -22,7 +22,8 @@ public class RouteUpdateMessage extends Message {
 
         @Override
         public String toString() {
-            return Message.MessageType.ROUTE_UPDATE.name() + " " + fromClientPortNumber;
+            return Message.MessageType.ROUTE_UPDATE.name() + " "
+                    + fromClientPortNumber;
         }
     }
 
@@ -39,7 +40,8 @@ public class RouteUpdateMessage extends Message {
 
         // Parse header
         Header header = new Header(headerStr);
-        fromClient = new Client(fromClient.getIpAddress(), header.getFromClientPortNumber());
+        fromClient = new Client(fromClient.getIpAddress(),
+                header.getFromClientPortNumber());
 
         // Parse message
         routeUpdate = new HashMap<String, Double>();
@@ -66,15 +68,7 @@ public class RouteUpdateMessage extends Message {
         while (iter.hasNext()) {
             Entry<String, Double> entry = iter.next();
 
-            // Make sure to not include the toClient in the route update
-            // message
-            if (entry.getKey().equals(
-                    toClient.getIpAddressPortNumberString())) {
-                continue;
-            }
-
-            messageStr += "\n" + entry.getKey() + " "
-                    + entry.getValue();
+            messageStr += "\n" + entry.getKey() + " " + entry.getValue();
         }
         messageStr = messageStr.isEmpty() ? messageStr : messageStr
                 .substring(1);

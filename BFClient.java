@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Scanner;
 
 import javax.swing.SwingUtilities;
@@ -59,20 +60,45 @@ public class BFClient {
 
     }
 
+    /**
+     * Performs a link down without notifying peoples
+     */
+    public void linkdownNoSend(Client linkDownClient) {
+        // Link down in our table
+        routingTable.linkdown(linkDownClient);
+
+        // Set any links that are through this client to INFINITY
+        Iterator<Client> iter = routingTable.getClients().iterator();
+        while (iter.hasNext()) {
+            Client client = iter.next();
+            if (client
+                    .getLink()
+                    .getIpAddressPortNumberString()
+                    .equals(linkDownClient
+                            .getIpAddressPortNumberString())) {
+                
+                // Set the cost
+                client.setCost(Double.POSITIVE_INFINITY);
+            }
+        }
+    }
+
     public String linkdown(Client linkDownClient) {
         // Check if the client we're trying to link down is our direct neighbor
         if (!routingTable.isDirectNeighbor(linkDownClient)) {
             return "Sorry, I can only link down direct neighbors!";
         }
 
-        // Link down in our table
-        routingTable.linkdown(linkDownClient);
+        linkdownNoSend(linkDownClient);
 
         // Update the UI
         gui.updateRoutingTableUI(routingTable);
 
-        // Tell everyone that this link down happened
+        // Tell the link down client that we're breaking up
         writeSocket.linkDown(linkDownClient);
+
+        // Tell everyone that this link down happened
+        writeSocket.sendRouteUpdate();
 
         return routingTable.get(linkDownClient).toString();
     }
@@ -85,7 +111,9 @@ public class BFClient {
         // Check if the link we're trying to link up is currently down
         linkUpClient = routingTable.get(linkUpClient);
         if (linkUpClient.getCost() != Double.POSITIVE_INFINITY) {
-            return "Sorry, link to " + linkUpClient.getIpAddressPortNumberString() + " is not down!";
+            return "Sorry, link to "
+                    + linkUpClient.getIpAddressPortNumberString()
+                    + " is not down!";
         }
 
         // Check if the client we're trying to link up is our direct neighbor
@@ -95,7 +123,14 @@ public class BFClient {
 
         linkUpClient.setCost(cost);
 
+        // Update the UI
+        gui.updateRoutingTableUI(routingTable);
+
+        // Tell the link up client that we're getting back together
         writeSocket.linkUp(linkUpClient, cost);
+
+        // Tell everyone that this link up happened
+        writeSocket.sendRouteUpdate();
 
         return routingTable.get(linkUpClient).toString();
     }
@@ -103,7 +138,14 @@ public class BFClient {
     public String transfer(Client destination) {
         // Check if we have a file chunk to send
         if (fileChunk == null) {
-            return "I don't have a file chunk to transfer!";
+            return "Sorry, I don't have a file chunk to transfer!";
+        }
+
+        // Check if we have a path that does not cost infinity to this
+        // destination
+        if (routingTable.get(destination).getCost() == Double.POSITIVE_INFINITY) {
+            return "Sorry, I don't have a finite path to "
+                    + destination.getIpAddressPortNumberString() + "!";
         }
 
         // Get link to destination

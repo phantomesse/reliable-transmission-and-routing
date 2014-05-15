@@ -33,14 +33,12 @@ public class WriteSocket extends Thread {
     public void linkUp(Client clientUp, double cost) {
         LinkUpMessage message = new LinkUpMessage(new Client(null,
                 bfclient.getPortNumber()), clientUp, cost);
-        
+
         DatagramPacket packet = message.encode(clientUp);
         try {
             socket.send(packet);
         } catch (IOException e) {
-            System.out.println("Link down to "
-                    + clientUp.getIpAddressPortNumberString()
-                    + " failed to send");
+            // Something went wrong
         }
     }
 
@@ -51,18 +49,11 @@ public class WriteSocket extends Thread {
         LinkDownMessage message = new LinkDownMessage(new Client(null,
                 bfclient.getPortNumber()), clientDown);
 
-        Iterator<Client> iter = bfclient.getRoutingTable().getClients()
-                .iterator();
-        while (iter.hasNext()) {
-            Client toClient = iter.next();
-            DatagramPacket packet = message.encode(toClient);
-            try {
-                socket.send(packet);
-            } catch (IOException e) {
-                System.out.println("Link down to "
-                        + toClient.getIpAddressPortNumberString()
-                        + " failed to send");
-            }
+        DatagramPacket packet = message.encode(clientDown);
+        try {
+            socket.send(packet);
+        } catch (IOException e) {
+            // Something went wrong
         }
     }
 
@@ -71,9 +62,6 @@ public class WriteSocket extends Thread {
      */
     public void transferChunk(FileChunk chunk, Client toClient,
             Client destination) {
-        System.out.println("Transferring a chunk to "
-                + toClient.getIpAddressPortNumberString());
-
         chunk.setDestination(destination);
 
         TransferMessage message = new TransferMessage(
@@ -84,17 +72,14 @@ public class WriteSocket extends Thread {
         try {
             socket.send(packet);
         } catch (IOException e) {
-            System.out.println("Transfer chunk to "
-                    + toClient.getIpAddressPortNumberString()
-                    + " failed to send");
-            e.printStackTrace();
+            // Something went wrong
         }
     }
 
     /**
      * Sends a route update to all of our neighbors.
      */
-    public void sendRouteUpdate() {
+    public void sendRouteUpdate() {        
         RoutingTable routingTable = bfclient.getRoutingTable();
         Iterator<Client> iter = routingTable.getClients().iterator();
 
@@ -104,13 +89,15 @@ public class WriteSocket extends Thread {
             Client client = iter.next();
 
             // Check if client should be dead by now
-            long lastHeardFrom = client.getLastHeardFrom();
-            long now = System.currentTimeMillis();
-            long difference = (now - lastHeardFrom) / 1000;
-            if (difference > timeout * 3) {
-                // Link down this client
-                bfclient.getRoutingTable().linkdown(client);
-                bfclient.getGUI().updateRoutingTableUI(routingTable);
+            if (routingTable.isDirectNeighbor(client)) {
+                long lastHeardFrom = client.getLastHeardFrom();
+                long now = System.currentTimeMillis();
+                long difference = (now - lastHeardFrom) / 1000;
+                if (difference > timeout * 3) {
+                    // Link down this client
+                    bfclient.linkdownNoSend(client);
+                    bfclient.getGUI().updateRoutingTableUI(routingTable);
+                }
             }
 
             routeUpdateMessage.put(client.getIpAddressPortNumberString(),
@@ -123,13 +110,20 @@ public class WriteSocket extends Thread {
         iter = routingTable.getClients().iterator();
         while (iter.hasNext()) {
             Client toClient = iter.next();
-            DatagramPacket packet = message.encode(toClient);
-            try {
-                socket.send(packet);
-            } catch (IOException e) {
-                System.out.println("Route update to "
-                        + toClient.getIpAddressPortNumberString()
-                        + " failed to send");
+
+            // Don't send route update messages to neighbors with infinite costs
+            if (toClient.getCost() == Double.POSITIVE_INFINITY) {
+                continue;
+            }
+
+            // Only send route update messages to direct neighbors
+            if (routingTable.isDirectNeighbor(toClient)) {
+                DatagramPacket packet = message.encode(toClient);
+                try {
+                    socket.send(packet);
+                } catch (IOException e) {
+                    // Something went wrong
+                }
             }
         }
     }

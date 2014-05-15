@@ -114,11 +114,7 @@ public class TransferMessage extends Message {
         for (int i = 0; i < chunk.length; i++) {
             message[i + clientsTraversed.length] = chunk[i];
         }
-        
-        System.out.println("Clients traversed size is : " + clientsTraversed.length);
-        System.out.println("Chunk size is : " + chunk.length);
-        System.out.println("Message size is : " + message.length);
-        
+                
         return encode(toClient, header.toString(), message);
     }
     

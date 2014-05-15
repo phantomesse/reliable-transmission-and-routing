@@ -18,11 +18,13 @@ public class RoutingTable {
      * Checks if a client is a direct neighbor.
      */
     public boolean isDirectNeighbor(Client client) {
-        Client link = routingTable.get(client.getIpAddressPortNumberString()).getLink();
-        
-        return client.getIpAddressPortNumberString().equals(link.getIpAddressPortNumberString());
+        Client link = routingTable.get(client.getIpAddressPortNumberString())
+                .getLink();
+
+        return client.getIpAddressPortNumberString().equals(
+                link.getIpAddressPortNumberString());
     }
-    
+
     public Client get(Client client) {
         return routingTable.get(client.getIpAddressPortNumberString());
     }
@@ -56,14 +58,18 @@ public class RoutingTable {
                     .getIpAddressPortNumberString());
 
             // Check if this update is a link down
-//if (cost == Double.POSITIVE_INFINITY
-//                    && routingTable.get(
-//                            linkClient.getIpAddressPortNumberString())
-//                            .getCost() != Double.POSITIVE_INFINITY) {
-//                // This is a link down
-//                destinationClient.setCost(cost);
-//                return true;
-//            }            
+            if (cost == Double.POSITIVE_INFINITY
+                    && destinationClient.getLink()
+                            .getIpAddressPortNumberString()
+                            .equals(linkClient.getIpAddressPortNumberString())) {
+                // This is a link down
+                if (destinationClient.getCost() != Double.POSITIVE_INFINITY) {
+                    destinationClient.setCost(cost);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
 
             // Only update the link if the new cost is smaller
             if (cost < destinationClient.getCost()) {
