@@ -18,6 +18,8 @@ public class FileChunk {
         this.chunk = chunk;
         this.sequenceNumber = sequenceNumber;
 
+        System.out.println("Chunk size is " + chunk.length);
+        
         clientsTraversed = new LinkedList<String>();
     }
 

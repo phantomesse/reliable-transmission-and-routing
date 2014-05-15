@@ -5,7 +5,7 @@ public abstract class Message {
         ROUTE_UPDATE, TRANSFER, LINKDOWN, LINKUP;
     }
     
-    private static final int HEADER_SIZE = 2048; // bytes
+    private static final int HEADER_SIZE = 512; // bytes
     private MessageType type;
     protected Client fromClient;
     protected String headerStr;
@@ -29,7 +29,7 @@ public abstract class Message {
         headerStr = (new String(header)).trim();
 
         // Get the message from the data
-        message = new byte[data.length - HEADER_SIZE];
+        message = new byte[packet.getLength() - HEADER_SIZE];
         for (int i = 0; i < message.length; i++) {
             message[i] = data[i + HEADER_SIZE];
         }

@@ -87,6 +87,7 @@ public class WriteSocket extends Thread {
             System.out.println("Transfer chunk to "
                     + toClient.getIpAddressPortNumberString()
                     + " failed to send");
+            e.printStackTrace();
         }
     }
 
