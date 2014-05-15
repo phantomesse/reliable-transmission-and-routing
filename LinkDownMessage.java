@@ -1,6 +1,11 @@
 import java.net.DatagramPacket;
 import java.net.UnknownHostException;
 
+/**
+ * A {@link Message} for communicating link downs.
+ * 
+ * @author Lauren Zou
+ */
 public class LinkDownMessage extends Message {
     private class Header {
         private int fromClientPortNumber;

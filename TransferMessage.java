@@ -1,6 +1,11 @@
 import java.net.DatagramPacket;
 import java.net.UnknownHostException;
 
+/**
+ * A {@link Message} for {@link FileChunk} transfers.
+ * 
+ * @author Lauren Zou
+ */
 public class TransferMessage extends Message {
 
     private class Header {

@@ -8,6 +8,11 @@ import java.net.UnknownHostException;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
+/**
+ * Graphical user interface for the {@link BFClient}.
+ * 
+ * @author Lauren Zou
+ */
 public class BFClientUI {
     private static final int WIDTH = 650;
     private static final int HEIGHT = 300;

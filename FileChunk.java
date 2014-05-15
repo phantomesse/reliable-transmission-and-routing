@@ -1,6 +1,11 @@
 import java.util.Date;
 import java.util.LinkedList;
 
+/**
+ * Data structure for a file chunk that is transmitted between clients.
+ * 
+ * @author Lauren Zou
+ */
 public class FileChunk {
     private String name;
     private byte[] chunk;
@@ -17,7 +22,7 @@ public class FileChunk {
         this.name = name;
         this.chunk = chunk;
         this.sequenceNumber = sequenceNumber;
-        
+
         clientsTraversed = new LinkedList<String>();
     }
 
@@ -38,15 +43,15 @@ public class FileChunk {
     public int getSequenceNumber() {
         return sequenceNumber;
     }
-    
+
     public String getName() {
         return name;
     }
-    
+
     public void setDestination(Client client) {
         this.destination = client;
     }
-    
+
     public Client getDestination() {
         return destination;
     }

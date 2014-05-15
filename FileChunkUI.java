@@ -4,6 +4,15 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+/**
+ * Graphical user interface component for the {@link FileChunk}. Uses check
+ * boxes to show whether a client has a chunk or not. Note that, even though a
+ * client may have a check box ticked, it may not have that file chunk to send
+ * to other clients since it may have gotten that file chunk from another
+ * client.
+ * 
+ * @author Lauren Zou
+ */
 @SuppressWarnings("serial")
 public class FileChunkUI extends JPanel {
     private JCheckBox[] checks;
@@ -19,7 +28,7 @@ public class FileChunkUI extends JPanel {
             checks[i] = new JCheckBox();
             checks[i].setEnabled(false);
             checks[i].setSelected(myChunks[i] != null);
-            
+
             panel.add(checks[i]);
         }
         add(panel, BorderLayout.CENTER);

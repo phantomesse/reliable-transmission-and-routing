@@ -12,6 +12,12 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+/**
+ * Graphical user interface component for the prompt panel. Contains controls
+ * for executing various commands such as LINKUP and LINKDOWN.
+ * 
+ * @author Lauren Zou
+ */
 @SuppressWarnings("serial")
 public class CommandUI extends JPanel implements ActionListener {
 

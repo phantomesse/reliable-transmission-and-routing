@@ -8,6 +8,11 @@ import java.net.UnknownHostException;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
+/**
+ * {@link DatagramSocket} for reading in messages.
+ * 
+ * @author Lauren Zou
+ */
 public class ReadSocket extends Thread {
 
     public static int PACKET_BUFFER_LENGTH = 65507;

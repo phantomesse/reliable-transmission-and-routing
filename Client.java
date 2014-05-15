@@ -1,6 +1,14 @@
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+/**
+ * A {@link Client} class that can be used for multiple purposes. Contains
+ * information about a client, mainly the IP address and the port number. Also
+ * contains information about the client for the routing table such as cost and
+ * link.
+ * 
+ * @author Lauren Zou
+ */
 public class Client {
     private InetAddress ipAddress;
     private int portNumber;
@@ -27,7 +35,7 @@ public class Client {
         this.link = new Client(linkIpAddress, linkPortNumber);
     }
 
-    public Client(String ipAddressPortNumberString) throws UnknownHostException {        
+    public Client(String ipAddressPortNumberString) throws UnknownHostException {
         String[] str = ipAddressPortNumberString.split(":");
         this.ipAddress = InetAddress.getByName(str[0]);
         this.portNumber = Integer.parseInt(str[1]);

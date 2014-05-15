@@ -3,6 +3,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
+/**
+ * A {@link Message} for communicating route updates.
+ * 
+ * @author Lauren Zou
+ */
 public class RouteUpdateMessage extends Message {
 
     private class Header {

@@ -5,6 +5,11 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Data structure for the routing table.
+ * 
+ * @author Lauren Zou
+ */
 public class RoutingTable {
     public static final SimpleDateFormat FORMAT = new SimpleDateFormat(
             "HH:mm:ss");

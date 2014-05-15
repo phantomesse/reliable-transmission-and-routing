@@ -10,6 +10,11 @@ import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 
+/**
+ * Graphical user interface component for the output.
+ * 
+ * @author Lauren Zou
+ */
 @SuppressWarnings("serial")
 public class Console extends JPanel {
     private JTextPane console;

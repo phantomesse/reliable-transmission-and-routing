@@ -5,6 +5,11 @@ import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Iterator;
 
+/**
+ * {@link DatagramSocket} for writing messages.
+ * 
+ * @author Lauren Zou
+ */
 public class WriteSocket extends Thread {
     private BFClient bfclient;
     private DatagramSocket socket;
@@ -79,7 +84,7 @@ public class WriteSocket extends Thread {
     /**
      * Sends a route update to all of our neighbors.
      */
-    public void sendRouteUpdate() {        
+    public void sendRouteUpdate() {
         RoutingTable routingTable = bfclient.getRoutingTable();
         Iterator<Client> iter = routingTable.getClients().iterator();
 

@@ -9,6 +9,11 @@ import javax.swing.JPanel;
 import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
 
+/**
+ * Graphical user interface component for displaying the routing table.
+ * 
+ * @author Lauren Zou
+ */
 @SuppressWarnings("serial")
 public class RoutingTableUI extends JPanel {
     private class RoutingTableModel extends AbstractTableModel {

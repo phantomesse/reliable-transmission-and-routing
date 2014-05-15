@@ -13,6 +13,12 @@ import java.util.Scanner;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 
+/**
+ * Main class of the program. Handles communication between the graphical user
+ * interface, the sockets (both reading and writing), and the routing table.
+ * 
+ * @author Lauren Zou
+ */
 public class BFClient {
 
     public enum Command {
@@ -41,8 +47,7 @@ public class BFClient {
         if (this.fileChunk != null) {
             myChunks[this.fileChunk.getSequenceNumber() - 1] = this.fileChunk;
         }
-        
-        
+
         // Set up sockets
         writeSocket = new WriteSocket(this, timeout);
         readSocket = new ReadSocket(this);

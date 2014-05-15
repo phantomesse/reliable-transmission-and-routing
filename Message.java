@@ -1,16 +1,21 @@
 import java.net.DatagramPacket;
 
+/**
+ * Abstract class for messages that are sent in {@link DatagramPacket} objects.
+ * 
+ * @author Lauren Zou
+ */
 public abstract class Message {
     public enum MessageType {
         ROUTE_UPDATE, TRANSFER, LINKDOWN, LINKUP;
     }
-    
+
     private static final int HEADER_SIZE = 512; // bytes
     private MessageType type;
     protected Client fromClient;
     protected String headerStr;
     protected byte[] message;
-    
+
     public Message(MessageType type, Client fromClient) {
         this.type = type;
         this.fromClient = fromClient;
@@ -27,27 +32,28 @@ public abstract class Message {
             header[i] = data[i];
         }
         headerStr = (new String(header)).trim();
-        
+
         // Get the message from the data
         message = new byte[packet.getLength() - HEADER_SIZE];
         for (int i = 0; i < message.length; i++) {
             message[i] = data[i + HEADER_SIZE];
         }
     }
-    
+
     /**
      * Decodes a {@link DatagramPacket}. Returns the appropriate message class.
      */
     public static Message decode(DatagramPacket packet) {
         byte[] header = new byte[HEADER_SIZE];
         byte[] data = packet.getData();
-        
+
         for (int i = 0; i < header.length; i++) {
             header[i] = data[i];
         }
-        
-        MessageType type = MessageType.valueOf((new String(header)).split(" ")[0]);
-        switch(type) {
+
+        MessageType type = MessageType
+                .valueOf((new String(header)).split(" ")[0]);
+        switch (type) {
             case ROUTE_UPDATE:
                 return new RouteUpdateMessage(packet);
             case TRANSFER:
@@ -57,7 +63,7 @@ public abstract class Message {
             case LINKUP:
                 return new LinkUpMessage(packet);
         }
-        
+
         return null;
     }
 
@@ -83,7 +89,7 @@ public abstract class Message {
     public Client getFromClient() {
         return fromClient;
     }
-    
+
     public MessageType getType() {
         return type;
     }
