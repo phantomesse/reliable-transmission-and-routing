@@ -19,6 +19,7 @@ public class FileChunkUI extends JPanel {
             checks[i] = new JCheckBox();
             checks[i].setEnabled(false);
             checks[i].setSelected(myChunks[i] != null);
+            
             panel.add(checks[i]);
         }
         add(panel, BorderLayout.CENTER);
