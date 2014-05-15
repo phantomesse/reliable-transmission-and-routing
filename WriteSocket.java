@@ -30,6 +30,42 @@ public class WriteSocket extends Thread {
         interrupt();
     }
 
+    public void linkUp(Client clientUp, double cost) {
+        LinkUpMessage message = new LinkUpMessage(new Client(null,
+                bfclient.getPortNumber()), clientUp, cost);
+        
+        DatagramPacket packet = message.encode(clientUp);
+        try {
+            socket.send(packet);
+        } catch (IOException e) {
+            System.out.println("Link down to "
+                    + clientUp.getIpAddressPortNumberString()
+                    + " failed to send");
+        }
+    }
+
+    /**
+     * Announces a link down to a neighbor.
+     */
+    public void linkDown(Client clientDown) {
+        LinkDownMessage message = new LinkDownMessage(new Client(null,
+                bfclient.getPortNumber()), clientDown);
+
+        Iterator<Client> iter = bfclient.getRoutingTable().getClients()
+                .iterator();
+        while (iter.hasNext()) {
+            Client toClient = iter.next();
+            DatagramPacket packet = message.encode(toClient);
+            try {
+                socket.send(packet);
+            } catch (IOException e) {
+                System.out.println("Link down to "
+                        + toClient.getIpAddressPortNumberString()
+                        + " failed to send");
+            }
+        }
+    }
+
     /**
      * Transfers a chunk to a client.
      */
@@ -38,11 +74,13 @@ public class WriteSocket extends Thread {
         System.out.println("Transferring a chunk to "
                 + toClient.getIpAddressPortNumberString());
 
-        Message message = new Message(
+        chunk.setDestination(destination);
+
+        TransferMessage message = new TransferMessage(
                 new Client(null, bfclient.getPortNumber()),
                 chunk);
 
-        DatagramPacket packet = message.encode(toClient, destination);
+        DatagramPacket packet = message.encode(toClient);
         try {
             socket.send(packet);
         } catch (IOException e) {
@@ -77,14 +115,14 @@ public class WriteSocket extends Thread {
             routeUpdateMessage.put(client.getIpAddressPortNumberString(),
                     client.getCost());
         }
-        Message message = new Message(
+        RouteUpdateMessage message = new RouteUpdateMessage(
                 new Client(null, bfclient.getPortNumber()), routeUpdateMessage);
 
         // Send message to neighbors
         iter = routingTable.getClients().iterator();
         while (iter.hasNext()) {
             Client toClient = iter.next();
-            DatagramPacket packet = message.encode(toClient, null);
+            DatagramPacket packet = message.encode(toClient);
             try {
                 socket.send(packet);
             } catch (IOException e) {

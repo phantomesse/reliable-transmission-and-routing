@@ -7,6 +7,7 @@ import javax.swing.JPanel;
 import javax.swing.JTable;
 import javax.swing.table.AbstractTableModel;
 
+@SuppressWarnings("serial")
 public class RoutingTableUI extends JPanel {
     private class RoutingTableModel extends AbstractTableModel {
         private ArrayList<String[]> rows;
@@ -63,14 +64,14 @@ public class RoutingTableUI extends JPanel {
 
     public RoutingTableUI(RoutingTable routingTable) {
         super(new BorderLayout());
-        
+
         model = new RoutingTableModel(routingTable.getClients());
         table = new JTable(model);
-        
+
         add(table.getTableHeader(), BorderLayout.PAGE_START);
         add(table, BorderLayout.CENTER);
     }
-    
+
     public void update(RoutingTable routingTable) {
         model.update(routingTable.getClients());
     }

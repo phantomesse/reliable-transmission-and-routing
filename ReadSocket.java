@@ -35,7 +35,7 @@ public class ReadSocket extends Thread {
 
         try {
             socket.receive(packet);
-            return new Message(packet);
+            return Message.decode(packet);
         } catch (IOException e) {
             return null;
         }
@@ -52,21 +52,77 @@ public class ReadSocket extends Thread {
         }
     }
 
+    private boolean isMe(Client client) {
+        return isIpAddressMe(client.getIpAddress())
+                && client.getPortNumber() == bfclient.getPortNumber();
+    }
+
     @Override
     public void run() {
         while (true) {
             Message message = receive();
 
-            System.out.println("Received something!");
-            
             if (message == null) {
                 continue;
             }
 
             // Process message
             switch (message.getType()) {
+                case LINKUP:
+                    // Get the client that is up
+                    Client clientUp = ((LinkUpMessage) message).getClientUp();
+                    
+                    if (isMe(clientUp)) {
+                        clientUp = bfclient.getRoutingTable().get(message.getFromClient());
+                        
+                        // Check if the link matches where this LINKUP message is from
+                        Client link = clientUp.getLink();
+                        if (link.getIpAddressPortNumberString().equals(message.getFromClient().getIpAddressPortNumberString())) {
+                            // Link matches, so update the cost
+                            clientUp.setCost(((LinkUpMessage) message).getCost());
+                            
+                            // Send a route update
+                            bfclient.sendRouteUpdate();
+                        }
+                    }
+                    
+                    break;
+                case LINKDOWN:
+                    // Get the client that is down
+                    Client clientDown = ((LinkDownMessage) message)
+                            .getClientDown();
+
+                    if (isMe(clientDown)) {
+                        // Link that is down is the from client
+                        clientDown = message.getFromClient();
+
+                        // Link down in routing table
+                        bfclient.getRoutingTable().linkdown(clientDown);
+                        
+                        // Set any links that are through this client to INFINITY
+                        Iterator<Client> iter = bfclient.getRoutingTable().getClients().iterator();
+                        while (iter.hasNext()) {
+                            Client client = iter.next();
+                            if (client.getLink().getIpAddressPortNumberString().equals(client.getLink().getIpAddressPortNumberString())) {
+                                client.setCost(Double.POSITIVE_INFINITY);
+                                
+                                // Send link down
+                                //bfclient.sendLinkDown(clientDown);
+                            }
+                        }
+                    } else {
+                        // TODO
+                    }
+
+                    bfclient.updateRoutingTableUI();
+
+                    System.out.println("The client "
+                            + clientDown.getIpAddressPortNumberString()
+                            + " is down!");
+
+                    break;
                 case ROUTE_UPDATE:
-                    Iterator<Entry<String, Double>> routeUpdateMessageIterator = message
+                    Iterator<Entry<String, Double>> routeUpdateMessageIterator = ((RouteUpdateMessage) message)
                             .getRouteUpdate().entrySet().iterator();
 
                     // Update routing table
@@ -100,15 +156,12 @@ public class ReadSocket extends Thread {
                     }
                     break;
                 case TRANSFER:
-                    FileChunk chunkReceived = message.getFileChunk();
-                    
+                    FileChunk chunkReceived = ((TransferMessage) message)
+                            .getFileChunk();
+
                     System.out.println("Received a transfer something!");
 
-                    InetAddress destinationAddress = chunkReceived
-                            .getDestination().getIpAddress();
-                    if (isIpAddressMe(destinationAddress)
-                            && chunkReceived.getDestination().getPortNumber() == bfclient
-                                    .getPortNumber()) {
+                    if (isMe(chunkReceived.getDestination())) {
                         // Destination is me. We have reached the destination
                         bfclient.processChunk(chunkReceived);
                     } else {

@@ -11,6 +11,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+@SuppressWarnings("serial")
 public class CommandUI extends JPanel implements ActionListener {
 
     private class InputField extends JTextField implements FocusListener {
@@ -18,19 +19,8 @@ public class CommandUI extends JPanel implements ActionListener {
 
         public InputField(String placeholderText) {
             super(placeholderText);
+            addFocusListener(this);
             this.placeholderText = placeholderText;
-        }
-
-        /**
-         * Checks if this input field is filled out.
-         */
-        public boolean isFilledOut() {
-            return getText().isEmpty() ? false : !getText().equals(
-                    placeholderText);
-        }
-
-        public String getPlaceholderText() {
-            return placeholderText;
         }
 
         @Override
@@ -82,12 +72,17 @@ public class CommandUI extends JPanel implements ActionListener {
      * Populates the client combo box with the clients in the routing table.
      */
     public void populateClientComboBox() {
+        String select = (String) clientComboBox.getSelectedItem();
         clientComboBox.removeAllItems();
 
         Collection<Client> clients = gui.getBFClient().getRoutingTable()
                 .getClients();
         for (Client client : clients) {
             clientComboBox.addItem(client.getIpAddressPortNumberString());
+        }
+
+        if (select != null) {
+            clientComboBox.setSelectedItem(select);
         }
     }
 

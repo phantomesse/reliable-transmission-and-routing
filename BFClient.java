@@ -60,22 +60,44 @@ public class BFClient {
     }
 
     public String linkdown(Client linkDownClient) {
+        // Check if the client we're trying to link down is our direct neighbor
+        if (!routingTable.isDirectNeighbor(linkDownClient)) {
+            return "Sorry, I can only link down direct neighbors!";
+        }
+
         // Link down in our table
         routingTable.linkdown(linkDownClient);
 
         // Update the UI
         gui.updateRoutingTableUI(routingTable);
 
-        // Tell everyone else to link down
-        sendRouteUpdate();
+        // Tell everyone that this link down happened
+        writeSocket.linkDown(linkDownClient);
 
         return routingTable.get(linkDownClient).toString();
     }
 
-    public String linkup(Client linkUpClient, double cost) {
-        // TODO
+    public void sendLinkDown(Client clientDown) {
+        writeSocket.linkDown(clientDown);
+    }
 
-        return null;
+    public String linkup(Client linkUpClient, double cost) {
+        // Check if the link we're trying to link up is currently down
+        linkUpClient = routingTable.get(linkUpClient);
+        if (linkUpClient.getCost() != Double.POSITIVE_INFINITY) {
+            return "Sorry, link to " + linkUpClient.getIpAddressPortNumberString() + " is not down!";
+        }
+
+        // Check if the client we're trying to link up is our direct neighbor
+        if (!routingTable.isDirectNeighbor(linkUpClient)) {
+            return "Sorry, I can only link up direct neighbors!";
+        }
+
+        linkUpClient.setCost(cost);
+
+        writeSocket.linkUp(linkUpClient, cost);
+
+        return routingTable.get(linkUpClient).toString();
     }
 
     public String transfer(Client destination) {
@@ -83,7 +105,7 @@ public class BFClient {
         if (fileChunk == null) {
             return "I don't have a file chunk to transfer!";
         }
-        
+
         // Get link to destination
         Client link = routingTable.get(destination).getLink();
 
@@ -213,7 +235,7 @@ public class BFClient {
     public FileChunk[] getMyChunks() {
         return myChunks;
     }
-    
+
     public BFClientUI getGUI() {
         return gui;
     }

@@ -4,6 +4,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+@SuppressWarnings("serial")
 public class FileChunkUI extends JPanel {
     private JCheckBox[] checks;
 
