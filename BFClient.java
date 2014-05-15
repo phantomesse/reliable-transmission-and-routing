@@ -1,203 +1,221 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Date;
 import java.util.Scanner;
 
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+
 public class BFClient {
-    private enum Command {
-        LINKDOWN, LINKUP, SHOWRT, CLOSE, TRANSFER;
+
+    public enum Command {
+        LINKDOWN, LINKUP, SHOWRT, TRANSFER, CLOSE;
     }
 
     private int portNumber;
-    private int timeout;
+    private FileChunk fileChunk;
 
-    private String fileChunkToTransfer;
-    private int fileSequenceNumber;
+    private final WriteSocket writeSocket;
+    private final ReadSocket readSocket;
 
-    private WriteSocket writeSocket;
-    private ReadSocket readSocket;
+    private final RoutingTable routingTable;
 
-    private RoutingTable routingTable;
+    private FileChunk[] myChunks;
 
-    private BFClientUI gui;
+    BFClientUI gui;
 
-    public BFClient(String configFilePath) {
-        // Parse through config file
-        parseConfigFile(configFilePath);
+    public BFClient(int portNumber, int timeout, RoutingTable pRoutingTable,
+            FileChunk fileChunk) {
+        this.portNumber = portNumber;
+        this.routingTable = pRoutingTable;
+        this.fileChunk = fileChunk;
 
-        // Instantiate sockets
+        myChunks = new FileChunk[2];
+        if (this.fileChunk != null) {
+            myChunks[this.fileChunk.getSequenceNumber() - 1] = this.fileChunk;
+        }
+
+        // Set up sockets
         writeSocket = new WriteSocket(this, timeout);
         readSocket = new ReadSocket(this);
-        writeSocket.start();
-        readSocket.start();
 
+        // Set up GUI
         gui = new BFClientUI(this);
 
-//        SwingUtilities.invokeLater(new Runnable() {
-//            public void run() {
-                gui.createAndRunGUI();
-//            }
-//        });
-    }
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                gui.run();
 
-    /**
-     * Parses through a config file to instantiate various elements for
-     * {@link BFClient}.
-     */
-    private void parseConfigFile(String configFilePath) {
-        try {
-            Scanner scanner = new Scanner(new File(configFilePath));
-
-            // Configure this client
-            String[] line = scanner.nextLine().split(" ");
-            portNumber = Integer.parseInt(line[0]);
-            timeout = Integer.parseInt(line[1]); // specified in seconds
-            if (line.length > 2) {
-                fileChunkToTransfer = line[2];
-                fileSequenceNumber = Integer.parseInt(line[3]);
+                writeSocket.start();
+                readSocket.start();
             }
+        });
 
-            // Build the routing table
-            routingTable = new RoutingTable();
-            while (scanner.hasNextLine()) {
-                line = scanner.nextLine().split(" ");
-                Client client = new Client(line[0]);
-                double cost = Double.parseDouble(line[1]);
-                routingTable.update(client, client, cost);
-            }
-        } catch (FileNotFoundException e) {
-            die("could not read " + configFilePath);
-        } catch (Exception e) {
-            die("something went wrong while parsing " + configFilePath);
-        }
     }
 
-    /**
-     * Executes a command. Responds with the appropriate response string.
-     */
-    public String executeCommand(String commandStr) {
-        String[] command = commandStr.split(" ");
+    public String linkdown(Client linkDownClient) {
+        // Link down in our table
+        routingTable.linkdown(linkDownClient);
 
-        // Determine the type of command
-        Command commandType = null;
-        try {
-            commandType = Command.valueOf(command[0].toUpperCase());
-        } catch (Exception e) {
-            return "Sorry, we did not understand your command. Please try again!";
-        }
+        // Update the UI
+        gui.updateRoutingTableUI(routingTable);
 
-        switch (commandType) {
-            case LINKDOWN:
-                if (command.length < 3) {
-                    return "usage: LINKDOWN <ip address> <port number>";
-                }
-                try {
-                    InetAddress ipAddress = InetAddress.getByName(command[1]);
-                    int portNumber = Integer.parseInt(command[2]);
-                    return linkDown(ipAddress, portNumber);
-                } catch (UnknownHostException e) {
-                    return "Invalid IP address.";
-                } catch (NumberFormatException e) {
-                    return "Invalid port number.";
-                } catch (Exception e) {
-                    e.printStackTrace(); // TODO: remove this
-                    return "Something went wrong!";
-                }
-            case LINKUP:
-                return linkUp();
-            case SHOWRT:
-                return showRoutingTable();
-            case CLOSE:
-                close();
-                break;
-            case TRANSFER:
-                return transfer();
-        }
+        // Tell everyone else to link down
+        sendRouteUpdate();
 
-        return "";
+        return routingTable.get(linkDownClient).toString();
     }
 
-    private String linkDown(InetAddress ipAddress, int portNumber) {
-        // Link down on our routing table
-        routingTable.linkDown(new Client(ipAddress, portNumber));
-        
-        // Send route update
-        writeSocket.sendRouteUpdate();
-        
-        return routingTable.get(new Client(ipAddress, portNumber)).toString();
-    }
-
-    private String linkUp() {
+    public String linkup(Client linkUpClient, double cost) {
         // TODO
-        return "Command not implemented.";
+
+        return null;
     }
 
-    private String showRoutingTable() {
-        return routingTable.toString();
+    public String transfer(Client destination) {
+        // Check if we have a file chunk to send
+        if (fileChunk == null) {
+            return "I don't have a file chunk to transfer!";
+        }
+        
+        // Get link to destination
+        Client link = routingTable.get(destination).getLink();
+
+        writeSocket.transferChunk(fileChunk, link, destination);
+
+        return fileChunk.getName() + " chunk " + fileChunk.getSequenceNumber()
+                + " transferred to next hop "
+                + link.getIpAddressPortNumberString();
     }
 
+    /**
+     * Handle a transfer from the read socket
+     */
+    public void transfer(FileChunk chunk) {
+        // Get the destination
+        Client destination = chunk.getDestination();
+
+        // Get link to destination
+        Client link = routingTable.get(destination).getLink();
+
+        writeSocket.transferChunk(chunk, link, destination);
+
+        // Print to console
+        String message = chunk.getName() + " chunk "
+                + chunk.getSequenceNumber()
+                + " transferred to next hop "
+                + link.getIpAddressPortNumberString();
+        gui.getConsole().add(message + "\n");
+    }
+
+    /**
+     * Processes a chunk received by the read socket.
+     */
+    public void processChunk(FileChunk chunk) {
+        gui.getConsole().add(
+                chunk.getName() + " was received at "
+                        + RoutingTable.FORMAT.format(new Date())
+                        + ". Here was the path:\n"
+                        + chunk.getClientsTraversed());
+
+        // Add chunk to my chunks
+        myChunks[chunk.getSequenceNumber() - 1] = chunk;
+
+        // Check if the chunk array is complete
+        boolean completeFile = true;
+        for (FileChunk chunkArrayChunk : myChunks) {
+            if (chunkArrayChunk == null) {
+                completeFile = false;
+            }
+        }
+
+        if (completeFile) {
+            // Create a file out of the two chunks
+            byte[] chunk1 = myChunks[0].getChunk();
+            byte[] chunk2 = myChunks[1].getChunk();
+            byte[] file = new byte[chunk1.length + chunk2.length];
+            for (int i = 0; i < chunk1.length; i++) {
+                file[i] = chunk1[i];
+            }
+            for (int i = 0; i < chunk2.length; i++) {
+                file[i + chunk1.length] = chunk2[i];
+            }
+
+            // Create the file
+            BufferedOutputStream output = null;
+            try {
+                try {
+                    output = new BufferedOutputStream(new FileOutputStream(
+                            "output"));
+                    output.write(file);
+                } finally {
+                    output.close();
+                }
+
+                gui.getConsole().add("Saved file to output.\n");
+            } catch (IOException e) {
+                System.out.println("Could not save output.");
+            }
+        }
+
+        // Update the file chunk UI
+        gui.updateFileChunkUI(myChunks);
+    }
+
+    /**
+     * Shuts down the client
+     */
     public void close() {
-        writeSocket.interrupt();
-        readSocket.interrupt();
+        writeSocket.close();
+        readSocket.close();
+        gui.close();
         System.exit(0);
     }
 
-    private String transfer() {
-        // TODO
-        return "Command not implemented.";
+    public void updateRoutingTableUI() {
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                gui.updateRoutingTableUI(routingTable);
+            }
+        };
+
+        worker.execute();
     }
 
-    /**
-     * Updates the routing table based on incoming {@link Message}.
-     */
-    public void updateRoutingTable(Message message) {
-        // Touch the client that sent this message
-        Client fromClient = message.getFromClient();
-        routingTable.touch(fromClient);
-
-        String messageStr = message.getMessage().trim();
-        if (messageStr.isEmpty()) {
-            gui.updateRoutingTable();
-            return; // Nothing to do here
-        }
-        
-        // Parse through message string
-        boolean routingTableChanged = false;
-        String[] messageArr = messageStr.split("\n");
-        for (String vectorStr : messageArr) {
-            if (vectorStr.trim().isEmpty()) {
-                continue;
-            }
-            String[] vector = vectorStr.split(" ");
-            try {
-                Client destinationClient = new Client(vector[0]);
-                double cost = Double.parseDouble(vector[1]);
-                boolean changed = routingTable.update(destinationClient, fromClient, cost);
-                routingTableChanged = changed? true : routingTableChanged;
-            } catch (UnknownHostException e) {
-                // Something went wrong
-            }
-        }
-        gui.updateRoutingTable();
-        
-        // Send route update if routing table changed
-        if (routingTableChanged) {
-            writeSocket.sendRouteUpdate();
-        }
-    }
-
-    public RoutingTable getRoutingTable() {
-        return routingTable;
+    public void sendRouteUpdate() {
+        writeSocket.sendRouteUpdate();
     }
 
     public int getPortNumber() {
         return portNumber;
     }
 
-    private static void die(String message) {
-        System.err.println(message);
-        System.exit(1);
+    public RoutingTable getRoutingTable() {
+        return routingTable;
+    }
+
+    public FileChunk getFileChunk() {
+        return fileChunk;
+    }
+
+    public FileChunk[] getMyChunks() {
+        return myChunks;
+    }
+    
+    public BFClientUI getGUI() {
+        return gui;
     }
 
     public static void main(String[] args) {
@@ -205,7 +223,71 @@ public class BFClient {
             die("usage: BFClient <config file>");
         }
 
-        new BFClient(args[0]);
+        parseConfigFile(args[0]);
+    }
 
+    /**
+     * Parses a configuration file into a <code>BFClient</code>.
+     */
+    private static BFClient parseConfigFile(String configFilePath) {
+        try {
+            Scanner scanner = new Scanner(new File(configFilePath));
+
+            // Configure this client
+            String[] line = scanner.nextLine().split(" ");
+            int portNumber = Integer.parseInt(line[0]);
+            int timeout = Integer.parseInt(line[1]); // specified in seconds
+
+            FileChunk fileChunk = null;
+            if (line.length > 2) {
+                String fileChunkToTransfer = line[2];
+                int fileSequenceNumber = Integer.parseInt(line[3]);
+                InputStream inputStream = null;
+                try {
+                    // Read in file chunk to transfer
+                    File file = new File(fileChunkToTransfer);
+                    byte[] chunk = new byte[(int) file.length()];
+                    inputStream = new BufferedInputStream(new FileInputStream(
+                            file));
+                    int totalBytesRead = 0;
+                    while (totalBytesRead < chunk.length) {
+                        int bytesRemaining = chunk.length - totalBytesRead;
+                        int bytesRead = inputStream.read(chunk, totalBytesRead,
+                                bytesRemaining);
+                        if (bytesRead > 0) {
+                            totalBytesRead = totalBytesRead + bytesRead;
+                        }
+                    }
+                    fileChunk = new FileChunk(fileChunkToTransfer, chunk,
+                            fileSequenceNumber);
+                } catch (FileNotFoundException e) {
+                    die("could not read " + fileChunkToTransfer);
+                } finally {
+                    inputStream.close();
+                }
+            }
+
+            // Build the routing table
+            RoutingTable routingTable = new RoutingTable();
+            while (scanner.hasNextLine()) {
+                line = scanner.nextLine().split(" ");
+                Client client = new Client(line[0]);
+                double cost = Double.parseDouble(line[1]);
+                routingTable.update(client, client, cost);
+            }
+
+            return new BFClient(portNumber, timeout, routingTable, fileChunk);
+        } catch (FileNotFoundException e) {
+            die("could not read " + configFilePath);
+            return null;
+        } catch (Exception e) {
+            die("something went wrong while parsing " + configFilePath);
+            return null;
+        }
+    }
+
+    private static void die(String message) {
+        System.err.println(message);
+        System.exit(1);
     }
 }

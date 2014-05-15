@@ -6,50 +6,26 @@ import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class RoutingTable {
-    private static final SimpleDateFormat FORMAT = new SimpleDateFormat(
+    public static final SimpleDateFormat FORMAT = new SimpleDateFormat(
             "HH:mm:ss");
     private ConcurrentHashMap<String /* ipAddress:portNumber */, Client> routingTable;
 
     public RoutingTable() {
         routingTable = new ConcurrentHashMap<String, Client>();
     }
-    
-    public Client get(Client client) {
+
+    public synchronized Client get(Client client) {
         return routingTable.get(client.getIpAddressPortNumberString());
     }
 
-    public Collection<Client> getClients() {
-        return routingTable.values();
+    public synchronized void linkdown(Client client) {
+        routingTable.get(client.getIpAddressPortNumberString())
+                .setCost(Double.POSITIVE_INFINITY);
     }
 
-    /**
-     * Gets the data for displaying the routing table in the GUI.
-     */
-    public synchronized String[][] getRoutingTableDisplayInfo() {
-        String[][] displayInfo = new String[routingTable.size()][4];
-
-        int counter = 0;
-        Iterator<Client> iter = routingTable.values().iterator();
-        while (iter.hasNext()) {
-            Client client = iter.next();
-            String[] clientInfo = {
-                    client.getIpAddressPortNumberString(),
-                    client.getCost() + "",
-                    client.getLink().getIpAddressPortNumberString(),
-                    FORMAT.format(new Date(client.getLastHeardFrom()))
-            };
-            displayInfo[counter++] = clientInfo;
-        }
-
-        return displayInfo;
-    }
-    
-    public synchronized void linkDown(Client client) {
-        routingTable.get(client.getIpAddressPortNumberString()).setCost(Double.POSITIVE_INFINITY);
-    }
-    
     public synchronized void touch(Client client) {
-        routingTable.get(client.getIpAddressPortNumberString()).updateLastHeardFrom();
+        routingTable.get(client.getIpAddressPortNumberString())
+                .updateLastHeardFrom();
     }
 
     /**
@@ -59,21 +35,38 @@ public class RoutingTable {
      * if the routing table has not been updated.
      */
     public synchronized boolean update(Client destinationClient,
-            Client linkClient,
-            double cost) {
+            Client linkClient, double cost) {
         // Get the actual cost to the destination client
         cost = getActualCost(destinationClient, linkClient, cost);
 
         // Check if routing table already has the destination client
-        if (routingTable.contains(destinationClient
+        if (routingTable.containsKey(destinationClient
                 .getIpAddressPortNumberString())) {
             // Destination client already exists in the routing table
             destinationClient = routingTable.get(destinationClient
                     .getIpAddressPortNumberString());
-            destinationClient.updateLastHeardFrom();
 
             // Check if this update is a link down
-            // TODO
+            // TODO: Need a better implementation of this. Causes an infinite
+            // send update when linkdown.
+//            if (cost == Double.POSITIVE_INFINITY
+//                    && routingTable.get(
+//                            linkClient.getIpAddressPortNumberString())
+//                            .getCost() != Double.POSITIVE_INFINITY) {
+//                // This is a link down
+//                destinationClient.setCost(cost);
+//                return true;
+//            }
+
+            // Only update the link if the new cost is smaller
+            if (cost < destinationClient.getCost()) {
+                destinationClient.setCost(cost);
+                destinationClient.setLink(linkClient.getIpAddress(),
+                        linkClient.getPortNumber());
+                return true;
+            }
+
+            // Nothing to change
             return false;
         } else {
             // Destination client does not already exist in the routing table,
@@ -118,10 +111,19 @@ public class RoutingTable {
         }
 
         // Get the cost to the link client
+        if (!routingTable.containsKey(
+                linkClient.getIpAddressPortNumberString())) {
+            // Link client does not exist, so add it with a cost of infinity
+            add(linkClient, linkClient, Double.POSITIVE_INFINITY);
+        }
         double linkClientCost = routingTable.get(
                 linkClient.getIpAddressPortNumberString()).getCost();
 
         return linkClientCost + cost;
+    }
+
+    public Collection<Client> getClients() {
+        return routingTable.values();
     }
 
     @Override

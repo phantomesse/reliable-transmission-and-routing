@@ -27,9 +27,7 @@ public class Client {
         this.link = new Client(linkIpAddress, linkPortNumber);
     }
 
-    public Client(String ipAddressPortNumberString) throws UnknownHostException {
-        System.out.println("Trying to parse: " + ipAddressPortNumberString);
-        
+    public Client(String ipAddressPortNumberString) throws UnknownHostException {        
         String[] str = ipAddressPortNumberString.split(":");
         this.ipAddress = InetAddress.getByName(str[0]);
         this.portNumber = Integer.parseInt(str[1]);
