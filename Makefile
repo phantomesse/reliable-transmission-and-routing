@@ -4,5 +4,5 @@ all: BFClient.class
 	javac $<
 
 clean:
-	rm *.class
+	rm *.class output
 	
